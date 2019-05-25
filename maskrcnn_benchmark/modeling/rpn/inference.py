@@ -48,6 +48,8 @@ class RPNPostProcessor(torch.nn.Module):
             fpn_post_nms_top_n = post_nms_top_n
         self.fpn_post_nms_top_n = fpn_post_nms_top_n
 
+        self.onnx_export = True
+
     def add_gt_proposals(self, proposals, targets):
         """
         Arguments:
@@ -89,15 +91,34 @@ class RPNPostProcessor(torch.nn.Module):
 
         num_anchors = A * H * W
 
-        pre_nms_top_n = min(self.pre_nms_top_n, num_anchors)
+        if self.onnx_export:
+            from torch.onnx import operators
+            num_anchors = operators.shape_as_tensor(objectness)[1].unsqueeze(0)
+
+            pre_nms_top_n = torch.min(
+                torch.cat(
+                    (torch.tensor([self.pre_nms_top_n], dtype=torch.long),
+                     num_anchors), 0))
+        else:
+            pre_nms_top_n = min(self.pre_nms_top_n, num_anchors)
+        print('pre_nms_top_n shape', pre_nms_top_n.shape)
         objectness, topk_idx = objectness.topk(pre_nms_top_n, dim=1, sorted=True)
 
         batch_idx = torch.arange(N, device=device)[:, None]
-        box_regression = box_regression[batch_idx, topk_idx]
+        if self.onnx_export:
+            # TODO: use gather to handle batch > 1. For now, export as if batch is 1.
+            topk_idx = topk_idx.squeeze(0)
+            box_regression = box_regression.index_select(1, topk_idx)
+        else:
+            box_regression = box_regression[batch_idx, topk_idx]
+        print('box_regression after shape', box_regression.shape)
 
         image_shapes = [box.size for box in anchors]
         concat_anchors = torch.cat([a.bbox for a in anchors], dim=0)
-        concat_anchors = concat_anchors.reshape(N, -1, 4)[batch_idx, topk_idx]
+        if self.onnx_export:
+            concat_anchors = concat_anchors.reshape(N, -1, 4).index_select(1, topk_idx)
+        else:
+            concat_anchors = concat_anchors.reshape(N, -1, 4)[batch_idx, topk_idx]
 
         proposals = self.box_coder.decode(
             box_regression.view(-1, 4), concat_anchors.view(-1, 4)
@@ -106,11 +127,14 @@ class RPNPostProcessor(torch.nn.Module):
         proposals = proposals.view(N, -1, 4)
 
         result = []
+        print('proposals shape', proposals.shape)
+        print('objectness shape', objectness.shape)
+        print('len image_shapes', len(image_shapes))
         for proposal, score, im_shape in zip(proposals, objectness, image_shapes):
             boxlist = BoxList(proposal, im_shape, mode="xyxy")
             boxlist.add_field("objectness", score)
             boxlist = boxlist.clip_to_image(remove_empty=False)
-            boxlist = remove_small_boxes(boxlist, self.min_size)
+            boxlist = remove_small_boxes(boxlist, self.min_size, self.onnx_export)
             boxlist = boxlist_nms(
                 boxlist,
                 self.nms_thresh,
@@ -171,7 +195,17 @@ class RPNPostProcessor(torch.nn.Module):
         else:
             for i in range(num_images):
                 objectness = boxlists[i].get_field("objectness")
-                post_nms_top_n = min(self.fpn_post_nms_top_n, len(objectness))
+
+                if self.onnx_export:
+                    from torch.onnx import operators
+                    objectness_len = operators.shape_as_tensor(objectness)
+                    post_nms_top_n = torch.min(
+                        torch.cat(
+                            (torch.tensor([self.fpn_post_nms_top_n], dtype=torch.long),
+                             objectness_len), 0))
+                else:
+                    post_nms_top_n = min(self.fpn_post_nms_top_n, len(objectness))
+
                 _, inds_sorted = torch.topk(
                     objectness, post_nms_top_n, dim=0, sorted=True
                 )

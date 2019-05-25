@@ -25,6 +25,21 @@ def merge_levels(levels, unmerged_results):
         res.masked_scatter_((levels == l).view(-1, 1, 1, 1), unmerged_results[l])
     return res
 
+def merge_levels_onnx(levels, unmerged_results):
+    first_result = unmerged_results[0]
+    dtype, device = first_result.dtype, first_result.device
+    res = torch.zeros((levels.size(0), first_result.size(1),
+                       first_result.size(2), first_result.size(3)),
+                      dtype=dtype, device=device)
+    for l in range(len(unmerged_results)):
+        index = (levels == l).nonzero().view(-1, 1, 1, 1)
+        # WORK AROUND: masked_scatter_ not in ONNX
+        index = index.expand(index.size(0),
+                        unmerged_results[l].size(1),
+                        unmerged_results[l].size(2),
+                        unmerged_results[l].size(3)).to(torch.long)
+        res.scatter_(0, index, unmerged_results[l])
+    return res
 
 class LevelMapper(object):
     """Determine which FPN level each RoI in a set of RoIs should map to based
@@ -55,7 +70,7 @@ class LevelMapper(object):
         s = torch.sqrt(cat([boxlist.area() for boxlist in boxlists]))
 
         # Eqn.(1) in FPN paper
-        target_lvls = torch.floor(self.lvl0 + torch.log2(s / self.s0 + self.eps))
+        target_lvls = torch.floor(self.lvl0 + torch.log2(torch.tensor(self.eps, dtype=torch.float32) + s / self.s0))
         target_lvls = torch.clamp(target_lvls, min=self.k_min, max=self.k_max)
         return target_lvls.to(torch.int64) - self.k_min
 
@@ -91,6 +106,8 @@ class Pooler(nn.Module):
         lvl_min = -torch.log2(torch.tensor(scales[0], dtype=torch.float32)).item()
         lvl_max = -torch.log2(torch.tensor(scales[-1], dtype=torch.float32)).item()
         self.map_levels = LevelMapper(lvl_min, lvl_max)
+
+        self.onnx_export = True
 
     def convert_to_roi_format(self, boxes):
         concat_boxes = cat([b.bbox for b in boxes], dim=0)
@@ -130,5 +147,8 @@ class Pooler(nn.Module):
             rois_per_level = rois[idx_in_level]
             unmerged_results.append(pooler(per_level_feature, rois_per_level))
 
-        result = merge_levels(levels, unmerged_results)
+        if self.onnx_export:
+            result = merge_levels_onnx(levels, unmerged_results)
+        else:
+            result = merge_levels(levels, unmerged_results)
         return result

@@ -40,6 +40,8 @@ class PostProcessor(torch.jit.ScriptModule):
         self.box_coder = box_coder
         self.cls_agnostic_bbox_reg = cls_agnostic_bbox_reg
 
+        self.onnx_export = True
+
     @torch.jit.script_method
     def detections_to_keep(self, scores):
         number_of_detections = scores.size(0)
@@ -52,7 +54,22 @@ class PostProcessor(torch.jit.ScriptModule):
             keep = scores >= image_thresh  # remove for jit compat... .item()
             keep = torch.nonzero(keep).squeeze(1)
         else:
-            keep = torch.ones_like(scores, dtype=torch.uint8)
+            # keep = torch.ones_like(scores, dtype=torch.uint8)
+            keep = torch.ones(scores.shape, dtype=torch.uint8)
+
+
+    def detections_to_keep_onnx(self, scores):
+        from torch.onnx import operators
+        print('scores shape', scores)
+        number_of_detections = operators.shape_as_tensor(scores)
+        number_to_keep = torch.min(
+            torch.cat(
+                (torch.tensor([self.detections_per_img], dtype=torch.long),
+                              number_of_detections), 0))
+
+        _, keep = torch.topk(
+            scores, number_to_keep, dim=0, sorted=True)
+
         return keep
 
     def forward(self, x, boxes):
@@ -148,7 +165,10 @@ class PostProcessor(torch.jit.ScriptModule):
 
         result = cat_boxlist(result)
         scores = result.get_field("scores")
-        keep = self.detections_to_keep(scores)
+        if self.onnx_export:
+            keep = self.detections_to_keep_onnx(scores)
+        else:
+            keep = self.detections_to_keep(scores)
         result = result[keep]
         return result
 

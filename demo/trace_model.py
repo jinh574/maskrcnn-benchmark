@@ -1,6 +1,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
-import os
 from __future__ import division
+import os
 
 import numpy
 from io import BytesIO
@@ -51,6 +51,10 @@ def single_image_to_top_predictions(image):
     image = image - torch.tensor(cfg.INPUT.PIXEL_MEAN)[:, None, None]
     # should also do variance...
     image_list = ImageList(image.unsqueeze(0), [(int(image.size(-2)), int(image.size(-1)))])
+
+    for param in coco_demo.model.parameters():
+        param.requires_grad = False
+
     result, = coco_demo.model(image_list)
     scores = result.get_field("scores")
     keep = (scores >= coco_demo.confidence_threshold)
@@ -109,11 +113,11 @@ def my_paste_mask(mask, bbox, height, width, threshold=0.5, padding=1, contour=T
     return mask
 
 
-@torch.jit.script
-def add_annotations(image, labels, scores, bboxes, class_names=','.join(coco_demo.CATEGORIES), color=torch.tensor([255, 255, 255], dtype=torch.long)):
-    # type: (Tensor, Tensor, Tensor, Tensor, str, Tensor) -> Tensor
-    result_image = torch.ops.maskrcnn_benchmark.add_annotations(image, labels, scores, bboxes, class_names, color)
-    return result_image
+# @torch.jit.script
+# def add_annotations(image, labels, scores, bboxes, class_names=','.join(coco_demo.CATEGORIES), color=torch.tensor([255, 255, 255], dtype=torch.long)):
+#     # type: (Tensor, Tensor, Tensor, Tensor, str, Tensor) -> Tensor
+#     result_image = torch.ops.maskrcnn_benchmark.add_annotations(image, labels, scores, bboxes, class_names, color)
+#     return result_image
 
 
 @torch.jit.script
@@ -126,7 +130,7 @@ def combine_masks(image, labels, masks, scores, bboxes, threshold=0.5, padding=1
         color = ((palette * labels[i]) % 255).to(torch.uint8)
         one_mask = my_paste_mask(masks[i, 0], bboxes[i], height, width, threshold, padding, contour, rectangle)
         image_with_mask = torch.where(one_mask.unsqueeze(-1), color.unsqueeze(0).unsqueeze(0), image_with_mask)
-    image_with_mask = add_annotations(image_with_mask, labels, scores, bboxes)
+    # image_with_mask = add_annotations(image_with_mask, labels, scores, bboxes)
     return image_with_mask
 
 
