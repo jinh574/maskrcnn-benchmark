@@ -87,23 +87,30 @@ class PostProcessor(torch.jit.ScriptModule):
         class_logits, box_regression = x
         class_prob = F.softmax(class_logits, -1)
 
+        # NOTE: onnx export. maybe we can get rid of the repeat, if using multi-label nms.
         # TODO think about a representation of batch of boxes
         image_shapes = [box.size for box in boxes]
         boxes_per_image = [len(box) for box in boxes]
         concat_boxes = torch.cat([a.bbox for a in boxes], dim=0)
-
+        print('box regression shape', box_regression.shape)
         if self.cls_agnostic_bbox_reg:
             box_regression = box_regression[:, -4:]
         proposals = self.box_coder.decode(
             box_regression.view(sum(boxes_per_image), -1), concat_boxes
         )
+        print('proposals shape:', proposals.shape)
         if self.cls_agnostic_bbox_reg:
             proposals = proposals.repeat(1, class_prob.shape[1])
-
+        print('proposals after maybe repeat shape:', proposals.shape)
         num_classes = class_prob.shape[1]
 
-        proposals = proposals.split(boxes_per_image, dim=0)
-        class_prob = class_prob.split(boxes_per_image, dim=0)
+        # change this to batch == 1 for onnx export. Potential issue here.
+        if self.onnx_export:
+            proposals = (proposals,)
+            class_prob = (class_prob,)
+        else:
+            proposals = proposals.split(boxes_per_image, dim=0)
+            class_prob = class_prob.split(boxes_per_image, dim=0)
 
         results = []
         for prob, boxes_per_img, image_shape in zip(
@@ -111,6 +118,10 @@ class PostProcessor(torch.jit.ScriptModule):
         ):
             boxlist = self.prepare_boxlist(boxes_per_img, prob, image_shape)
             boxlist = boxlist.clip_to_image(remove_empty=False)
+            #if self.onnx_export:
+            #    boxlist = self.filter_results_multi_label_nms(boxlist, num_classes)
+            #else:
+            #    boxlist = self.filter_results(boxlist, num_classes)
             boxlist = self.filter_results(boxlist, num_classes)
             results.append(boxlist)
         return results
@@ -133,6 +144,24 @@ class PostProcessor(torch.jit.ScriptModule):
         boxlist = BoxList(boxes, image_shape, mode="xyxy")
         boxlist.add_field("scores", scores)
         return boxlist
+
+    def filter_results_multi_label_nms(self, boxlist, num_classes):
+        # boxes shape   [box num, label num, 4]
+        boxes = boxlist.bbox.reshape(-1, num_classes, 4)
+        scores = boxlist.get_field("scores").reshape(-1, num_classes)
+        print('boxes shape:', boxes.shape)
+        print('scores shape:', scores.shape)
+        import pdb; pdb.set_trace()
+        print('boxes value shape ', boxes[1].shape, ', for row 1', boxes[1])
+
+        result = []
+        # remove background
+
+        # nms
+
+        # converting indices etc.
+
+        return result
 
     def filter_results(self, boxlist, num_classes):
         """Returns bounding-box detection results by thresholding on scores and
