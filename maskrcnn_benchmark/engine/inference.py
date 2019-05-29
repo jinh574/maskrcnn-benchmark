@@ -13,6 +13,18 @@ from ..utils.comm import all_gather
 from ..utils.comm import synchronize
 
 
+def compute_on_dataset_onnx(sess, data_loader, device):
+    results_dict = {}
+    for i, batch in enumerate(tqdm(data_loader)):
+        images, targets, image_ids = batch
+        images = (images.tensors[0]*255).to(torch.uint8).permute(1, 2, 0).numpy()
+        output = sess.run(None, {sess.get_inputs()[0].name: images})
+        results_dict.update(
+            {img_id: result for img_id, result in zip(image_ids, [output])}
+        )
+    return results_dict
+
+
 def compute_on_dataset(model, data_loader, device):
     model.eval()
     results_dict = {}
@@ -26,6 +38,8 @@ def compute_on_dataset(model, data_loader, device):
         results_dict.update(
             {img_id: result for img_id, result in zip(image_ids, output)}
         )
+        if i > 10:
+            break
     return results_dict
 
 
@@ -61,6 +75,7 @@ def inference(
         expected_results=(),
         expected_results_sigma_tol=4,
         output_folder=None,
+        onnx=False,
 ):
     # convert to a torch.device for efficiency
     device = torch.device(device)
@@ -73,7 +88,12 @@ def inference(
     dataset = data_loader.dataset
     logger.info("Start evaluation on {} dataset({} images).".format(dataset_name, len(dataset)))
     start_time = time.time()
-    predictions = compute_on_dataset(model, data_loader, device)
+    if onnx:
+        import onnxruntime
+        sess = onnxruntime.InferenceSession('../demo/updated_model.onnx')
+        predictions = compute_on_dataset_onnx(sess, data_loader, device)
+    else:
+        predictions = compute_on_dataset(model, data_loader, device)
     # wait for all processes to complete before measuring the time
     synchronize()
     total_time = time.time() - start_time
@@ -101,4 +121,5 @@ def inference(
     return evaluate(dataset=dataset,
                     predictions=predictions,
                     output_folder=output_folder,
+                    onnx=onnx,
                     **extra_args)

@@ -104,7 +104,7 @@ def make_batch_data_sampler(
     return batch_sampler
 
 
-def make_data_loader(cfg, is_train=True, is_distributed=False, start_iter=0):
+def make_data_loader(cfg, is_train=True, is_distributed=False, onnx=False, start_iter=0):
     num_gpus = get_world_size()
     if is_train:
         images_per_batch = cfg.SOLVER.IMS_PER_BATCH
@@ -150,7 +150,12 @@ def make_data_loader(cfg, is_train=True, is_distributed=False, start_iter=0):
     DatasetCatalog = paths_catalog.DatasetCatalog
     dataset_list = cfg.DATASETS.TRAIN if is_train else cfg.DATASETS.TEST
 
-    transforms = build_transforms(cfg, is_train)
+    from torchvision.transforms import functional as F
+    def transform(image, targets):
+        return F.to_tensor(image), targets
+
+    transforms = build_transforms(cfg, is_train) if not onnx else transform
+    print('For onnx, skip transforms.')
     datasets = build_dataset(dataset_list, transforms, DatasetCatalog, is_train)
 
     data_loaders = []

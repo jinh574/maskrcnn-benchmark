@@ -15,6 +15,9 @@ def remove_unused_floor(model):
     #model = shape_inference.infer_shapes(model)
     nodes = model.graph.node
 
+    for i, n in enumerate(nodes):
+        n.name = str(i)
+
     floor_nodes = [node for node in nodes if node.op_type=='Floor']
 
     for f in floor_nodes:

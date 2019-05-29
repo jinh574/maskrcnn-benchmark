@@ -182,12 +182,12 @@ if __name__ == '__main__':
 
         register_custom_op()
 
-        #torch.onnx.export(model, (image,), 'model.onnx', verbose=True, opset_version=10, strip_doc_string=False)
-        pil_image = fetch_image(
-            url='http://farm4.staticflickr.com/3153/2970773875_164f0c0b83_z.jpg')
-        image2 = torch.from_numpy(numpy.array(pil_image)[:, :, [2, 1, 0]])
-        out = model(image)
-        print(out)
-        out_image = combine_masks(image, out[1], out[0], out[2], out[0])
-        pyplot.imshow(out_image[:, :, [2, 1, 0]])
-        pyplot.show()
+        torch.onnx.export(model, (image,), 'model.onnx', verbose=True, opset_version=10, strip_doc_string=False)
+        # pil_image = fetch_image(
+        #     url='http://farm4.staticflickr.com/3153/2970773875_164f0c0b83_z.jpg')
+        # image2 = torch.from_numpy(numpy.array(pil_image)[:, :, [2, 1, 0]])
+        # out = model(image)
+        # print(out)
+        # out_image = combine_masks(image, out[1], out[0], out[2], out[0])
+        # pyplot.imshow(out_image[:, :, [2, 1, 0]])
+        # pyplot.show()

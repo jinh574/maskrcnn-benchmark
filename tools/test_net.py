@@ -27,6 +27,7 @@ def main():
         help="path to config file",
     )
     parser.add_argument("--local_rank", type=int, default=0)
+    parser.add_argument("--onnx", type=bool, default=False)
     parser.add_argument(
         "opts",
         help="Modify config options using the command-line",
@@ -35,6 +36,10 @@ def main():
     )
 
     args = parser.parse_args()
+
+    onnx = args.onnx
+
+    print(args)
 
     num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
     distributed = num_gpus > 1
@@ -48,6 +53,9 @@ def main():
 
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
+
+    cfg.merge_from_list(['DATASETS.TEST', ('coco_2017_val',)])
+
     cfg.freeze()
 
     save_dir = ""
@@ -77,7 +85,7 @@ def main():
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference", dataset_name)
             mkdir(output_folder)
             output_folders[idx] = output_folder
-    data_loaders_val = make_data_loader(cfg, is_train=False, is_distributed=distributed)
+    data_loaders_val = make_data_loader(cfg, is_train=False, is_distributed=distributed, onnx=onnx)
     for output_folder, dataset_name, data_loader_val in zip(output_folders, dataset_names, data_loaders_val):
         inference(
             model,
@@ -89,6 +97,7 @@ def main():
             expected_results=cfg.TEST.EXPECTED_RESULTS,
             expected_results_sigma_tol=cfg.TEST.EXPECTED_RESULTS_SIGMA_TOL,
             output_folder=output_folder,
+            onnx=onnx,
         )
         synchronize()
 

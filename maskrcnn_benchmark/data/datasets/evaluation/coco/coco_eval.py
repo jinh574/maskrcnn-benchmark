@@ -15,6 +15,7 @@ def do_coco_evaluation(
     predictions,
     box_only,
     output_folder,
+    onnx,
     iou_types,
     expected_results,
     expected_results_sigma_tol,
@@ -41,7 +42,8 @@ def do_coco_evaluation(
     coco_results = {}
     if "bbox" in iou_types:
         logger.info("Preparing bbox results")
-        coco_results["bbox"] = prepare_for_coco_detection(predictions, dataset)
+        print('coco eval onnx:', onnx)
+        coco_results["bbox"] = prepare_for_coco_detection(predictions, dataset) if not onnx else prepare_for_coco_detection_onnx(predictions, dataset)
     if "segm" in iou_types:
         logger.info("Preparing segm results")
         coco_results["segm"] = prepare_for_coco_segmentation(predictions, dataset)
@@ -65,6 +67,54 @@ def do_coco_evaluation(
     if output_folder:
         torch.save(results, os.path.join(output_folder, "coco_results.pth"))
     return results, coco_results
+
+
+def prepare_for_coco_detection_onnx(predictions, dataset):
+    coco_results = []
+    for image_id, prediction in enumerate(predictions):
+        original_id = dataset.id_to_img_map[image_id]
+
+        img_info = dataset.get_img_info(image_id)
+        image_width = img_info["width"]
+        image_height = img_info["height"]
+
+        boxes = prediction[0]
+        labels = prediction[1].tolist()
+        scores = prediction[2].tolist()
+
+        # assuming divisible is 32 for now.
+        import math
+
+        stride = 32
+        width_ratio = image_width / float(math.ceil(image_width / stride) * stride)
+        height_ratio = image_height / float(math.ceil(image_height / stride) * stride)
+
+        # resize box, and convert to xywh
+        for i, _ in enumerate(boxes):
+            boxes[i][0] *= width_ratio
+            boxes[i][1] *= height_ratio
+            boxes[i][2] *= width_ratio
+            boxes[i][3] *= height_ratio
+
+            boxes[i][2] = boxes[i][2] - boxes[i][0]
+            boxes[i][3] = boxes[i][3] - boxes[i][1]
+
+        mapped_labels = [dataset.contiguous_category_id_to_json_id[i] for i in labels]
+
+        boxes = boxes.tolist()
+
+        coco_results.extend(
+            [
+                {
+                    "image_id": original_id,
+                    "category_id": mapped_labels[k],
+                    "bbox": box,
+                    "score": scores[k],
+                }
+                for k, box in enumerate(boxes)
+            ]
+        )
+    return coco_results
 
 
 def prepare_for_coco_detection(predictions, dataset):
