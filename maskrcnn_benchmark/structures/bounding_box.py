@@ -124,6 +124,7 @@ class BoxList(object):
             return bbox
 
         ratio_width, ratio_height = ratios
+        # print('ratio:', ratio_width, ratio_height)
         xmin, ymin, xmax, ymax = self._split_into_xyxy()
         scaled_xmin = xmin * ratio_width
         scaled_xmax = xmax * ratio_width
@@ -228,8 +229,11 @@ class BoxList(object):
     def clip_to_image(self, remove_empty=True):
         TO_REMOVE = 1
         # we do not use clamp_ inplace for the benefit of JIT tracing
-        xs = self.bbox[:, 0::2].clamp(min=0, max=self.size[0] - TO_REMOVE)
-        ys = self.bbox[:, 1::2].clamp(min=0, max=self.size[1] - TO_REMOVE)
+        # print('clip max xs:', self.size[0] - TO_REMOVE)
+        # print('clip max ys:', self.size[1] - TO_REMOVE)
+        # TODO: this is causing performance drop
+        xs = self.bbox[:, 0::2].clamp(min=0, max=self.size[0] - TO_REMOVE)#max=1279)#
+        ys = self.bbox[:, 1::2].clamp(min=0, max=self.size[0] - TO_REMOVE)#max=959)#W
         self.bbox = torch.stack([xs, ys], dim=2).view(-1, 4)
         if remove_empty:
             box = self.bbox

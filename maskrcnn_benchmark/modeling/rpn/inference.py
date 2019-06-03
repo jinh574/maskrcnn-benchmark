@@ -101,7 +101,7 @@ class RPNPostProcessor(torch.nn.Module):
                      num_anchors), 0))
         else:
             pre_nms_top_n = min(self.pre_nms_top_n, num_anchors)
-        print('pre_nms_top_n shape', pre_nms_top_n.shape)
+        # print('pre_nms_top_n shape', pre_nms_top_n.shape)
         objectness, topk_idx = objectness.topk(pre_nms_top_n, dim=1, sorted=True)
 
         batch_idx = torch.arange(N, device=device)[:, None]
@@ -111,7 +111,7 @@ class RPNPostProcessor(torch.nn.Module):
             box_regression = box_regression.index_select(1, topk_idx)
         else:
             box_regression = box_regression[batch_idx, topk_idx]
-        print('box_regression after shape', box_regression.shape)
+        # print('box_regression after shape', box_regression.shape)
 
         image_shapes = [box.size for box in anchors]
         concat_anchors = torch.cat([a.bbox for a in anchors], dim=0)
@@ -127,14 +127,15 @@ class RPNPostProcessor(torch.nn.Module):
         proposals = proposals.view(N, -1, 4)
 
         result = []
-        print('proposals shape', proposals.shape)
-        print('objectness shape', objectness.shape)
-        print('len image_shapes', len(image_shapes))
+        # print('proposals shape', proposals.shape)
+        # print('objectness shape', objectness.shape)
+        # print('len image_shapes', len(image_shapes))
         for proposal, score, im_shape in zip(proposals, objectness, image_shapes):
             boxlist = BoxList(proposal, im_shape, mode="xyxy")
             boxlist.add_field("objectness", score)
             boxlist = boxlist.clip_to_image(remove_empty=False)
-            boxlist = remove_small_boxes(boxlist, self.min_size, self.onnx_export)
+            if not (self.onnx_export and self.min_size == 0):
+                boxlist = remove_small_boxes(boxlist, self.min_size, self.onnx_export)
             boxlist = boxlist_nms(
                 boxlist,
                 self.nms_thresh,

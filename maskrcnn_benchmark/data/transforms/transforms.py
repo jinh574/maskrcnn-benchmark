@@ -57,6 +57,8 @@ class Resize(object):
     def __call__(self, image, target):
         size = self.get_size(image.size)
         image = F.resize(image, size)
+        print(image)
+        print(target)
         target = target.resize(image.size)
         return image, target
 

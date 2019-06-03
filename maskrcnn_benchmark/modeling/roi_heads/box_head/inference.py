@@ -60,7 +60,7 @@ class PostProcessor(torch.jit.ScriptModule):
 
     def detections_to_keep_onnx(self, scores):
         from torch.onnx import operators
-        print('scores shape', scores)
+        # print('scores shape', scores)
         number_of_detections = operators.shape_as_tensor(scores)
         number_to_keep = torch.min(
             torch.cat(
@@ -92,16 +92,16 @@ class PostProcessor(torch.jit.ScriptModule):
         image_shapes = [box.size for box in boxes]
         boxes_per_image = [len(box) for box in boxes]
         concat_boxes = torch.cat([a.bbox for a in boxes], dim=0)
-        print('box regression shape', box_regression.shape)
+        # print('box regression shape', box_regression.shape)
         if self.cls_agnostic_bbox_reg:
             box_regression = box_regression[:, -4:]
         proposals = self.box_coder.decode(
             box_regression.view(sum(boxes_per_image), -1), concat_boxes
         )
-        print('proposals shape:', proposals.shape)
+        # print('proposals shape:', proposals.shape)
         if self.cls_agnostic_bbox_reg:
             proposals = proposals.repeat(1, class_prob.shape[1])
-        print('proposals after maybe repeat shape:', proposals.shape)
+        # print('proposals after maybe repeat shape:', proposals.shape)
         num_classes = class_prob.shape[1]
 
         # change this to batch == 1 for onnx export. Potential issue here.
@@ -149,10 +149,10 @@ class PostProcessor(torch.jit.ScriptModule):
         # boxes shape   [box num, label num, 4]
         boxes = boxlist.bbox.reshape(-1, num_classes, 4)
         scores = boxlist.get_field("scores").reshape(-1, num_classes)
-        print('boxes shape:', boxes.shape)
-        print('scores shape:', scores.shape)
+        # print('boxes shape:', boxes.shape)
+        # print('scores shape:', scores.shape)
         import pdb; pdb.set_trace()
-        print('boxes value shape ', boxes[1].shape, ', for row 1', boxes[1])
+        # print('boxes value shape ', boxes[1].shape, ', for row 1', boxes[1])
 
         result = []
         # remove background

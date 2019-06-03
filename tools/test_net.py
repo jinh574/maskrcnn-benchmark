@@ -54,7 +54,7 @@ def main():
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
 
-    cfg.merge_from_list(['DATASETS.TEST', ('coco_2017_val',)])
+    # cfg.merge_from_list(['DATASETS.TEST', ('coco_2017_val',)])
 
     cfg.freeze()
 

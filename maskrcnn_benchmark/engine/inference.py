@@ -13,15 +13,26 @@ from ..utils.comm import all_gather
 from ..utils.comm import synchronize
 
 
+
 def compute_on_dataset_onnx(sess, data_loader, device):
     results_dict = {}
     for i, batch in enumerate(tqdm(data_loader)):
         images, targets, image_ids = batch
-        images = (images.tensors[0]*255).to(torch.uint8).permute(1, 2, 0).numpy()
+        # images = images.tensors[0]*255
+
+        # images = images.to(torch.uint8).permute(1, 2, 0).numpy()
+        images = images.tensors[0].numpy()
+        print(images)
+        print(images.shape)
+        # print(images)
         output = sess.run(None, {sess.get_inputs()[0].name: images})
         results_dict.update(
             {img_id: result for img_id, result in zip(image_ids, [output])}
         )
+        # print(output)
+        # print(output[0].shape)
+        # if i >= 3:
+        #     break
     return results_dict
 
 
@@ -38,8 +49,12 @@ def compute_on_dataset(model, data_loader, device):
         results_dict.update(
             {img_id: result for img_id, result in zip(image_ids, output)}
         )
-        if i > 10:
+        # print('image shape:', images.tensors[0].shape)
+        if i >= 3:
             break
+        # print(images.tensors[0])
+        # print('pytorch model output:', output)
+        # print(output[0].get_field('scores'))
     return results_dict
 
 

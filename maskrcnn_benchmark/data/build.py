@@ -151,11 +151,37 @@ def make_data_loader(cfg, is_train=True, is_distributed=False, onnx=False, start
     dataset_list = cfg.DATASETS.TRAIN if is_train else cfg.DATASETS.TEST
 
     from torchvision.transforms import functional as F
-    def transform(image, targets):
-        return F.to_tensor(image), targets
+    def get_size(image_size):
+        w, h = image_size
+        size = 800
+        max_size = 1333
+        if max_size is not None:
+            min_original_size = float(min((w, h)))
+            max_original_size = float(max((w, h)))
+            if max_original_size / min_original_size * size > max_size:
+                size = int(round(max_size * min_original_size / max_original_size))
 
-    transforms = build_transforms(cfg, is_train) if not onnx else transform
-    print('For onnx, skip transforms.')
+        if (w <= h and w == size) or (h <= w and h == size):
+            return (h, w)
+
+        if w < h:
+            ow = size
+            oh = int(size * h / w)
+        else:
+            oh = size
+            ow = int(size * w / h)
+
+        return (oh, ow)
+
+    def transform(image, targets):
+        image = F.to_tensor(image)
+        size = get_size(image.shape[1:])
+        image = torch.nn.functional.upsample(image.unsqueeze(0), size=size).squeeze(0)
+
+        return image, targets
+
+    transforms = build_transforms(cfg, is_train)# if not onnx else transform
+    print('For onnx, skip transforms.', onnx)
     datasets = build_dataset(dataset_list, transforms, DatasetCatalog, is_train)
 
     data_loaders = []

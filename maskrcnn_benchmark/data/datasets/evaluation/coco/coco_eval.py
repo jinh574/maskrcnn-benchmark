@@ -44,6 +44,8 @@ def do_coco_evaluation(
         logger.info("Preparing bbox results")
         print('coco eval onnx:', onnx)
         coco_results["bbox"] = prepare_for_coco_detection(predictions, dataset) if not onnx else prepare_for_coco_detection_onnx(predictions, dataset)
+        for v in coco_results['bbox']:
+            print(v)
     if "segm" in iou_types:
         logger.info("Preparing segm results")
         coco_results["segm"] = prepare_for_coco_segmentation(predictions, dataset)
@@ -70,6 +72,28 @@ def do_coco_evaluation(
 
 
 def prepare_for_coco_detection_onnx(predictions, dataset):
+    def get_size(image_size):
+        w, h = image_size
+        size = 800
+        max_size = 1333
+        if max_size is not None:
+            min_original_size = float(min((w, h)))
+            max_original_size = float(max((w, h)))
+            if max_original_size / min_original_size * size > max_size:
+                size = int(round(max_size * min_original_size / max_original_size))
+
+        if (w <= h and w == size) or (h <= w and h == size):
+            return (h, w)
+
+        if w < h:
+            ow = size
+            oh = int(size * h / w)
+        else:
+            oh = size
+            ow = int(size * w / h)
+
+        return (oh, ow)
+
     coco_results = []
     for image_id, prediction in enumerate(predictions):
         original_id = dataset.id_to_img_map[image_id]
@@ -86,9 +110,10 @@ def prepare_for_coco_detection_onnx(predictions, dataset):
         import math
 
         stride = 32
-        width_ratio = image_width / float(math.ceil(image_width / stride) * stride)
-        height_ratio = image_height / float(math.ceil(image_height / stride) * stride)
-
+        new_size = get_size((image_width, image_height))
+        width_ratio = image_width / float(new_size[1])
+        height_ratio = image_height / float(new_size[0])
+        # print('ratio:', width_ratio, height_ratio)
         # resize box, and convert to xywh
         for i, _ in enumerate(boxes):
             boxes[i][0] *= width_ratio
@@ -96,8 +121,8 @@ def prepare_for_coco_detection_onnx(predictions, dataset):
             boxes[i][2] *= width_ratio
             boxes[i][3] *= height_ratio
 
-            boxes[i][2] = boxes[i][2] - boxes[i][0]
-            boxes[i][3] = boxes[i][3] - boxes[i][1]
+            boxes[i][2] = boxes[i][2] - boxes[i][0] + 1
+            boxes[i][3] = boxes[i][3] - boxes[i][1] + 1
 
         mapped_labels = [dataset.contiguous_category_id_to_json_id[i] for i in labels]
 
