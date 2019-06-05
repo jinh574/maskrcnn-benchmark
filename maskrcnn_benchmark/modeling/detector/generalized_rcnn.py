@@ -29,6 +29,10 @@ class GeneralizedRCNN(nn.Module):
         self.rpn = build_rpn(cfg, self.backbone.out_channels)
         self.roi_heads = build_roi_heads(cfg, self.backbone.out_channels)
 
+    def prepare_onnx_export(self):
+        self.rpn.prepare_onnx_export()
+        self.roi_heads.prepare_onnx_export()
+
     def forward(self, images, targets=None):
         """
         Arguments:

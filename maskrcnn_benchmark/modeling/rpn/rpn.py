@@ -137,6 +137,9 @@ class RPNModule(torch.nn.Module):
         self.box_selector_test = box_selector_test
         self.loss_evaluator = loss_evaluator
 
+    def prepare_onnx_export(self):
+        self.box_selector_test.prepare_onnx_export()
+
     def forward(self, images, features, targets=None):
         """
         Arguments:

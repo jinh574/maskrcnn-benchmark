@@ -42,6 +42,11 @@ class PostProcessor(torch.jit.ScriptModule):
         self.cls_agnostic_bbox_reg = cls_agnostic_bbox_reg
         self.bbox_aug_enabled = bbox_aug_enabled
 
+        self.onnx_export = False
+
+    def prepare_onnx_export(self):
+        self.onnx_export = True
+
     @torch.jit.script_method
     def detections_to_keep(self, scores):
         number_of_detections = scores.size(0)
@@ -55,6 +60,18 @@ class PostProcessor(torch.jit.ScriptModule):
             # keep = torch.nonzero(keep).squeeze(1)
         else:
             keep = torch.ones(scores.shape, device=scores.device, dtype=torch.uint8)
+
+    def detections_to_keep_onnx(self, scores):
+        from torch.onnx import operators
+        number_of_detections = operators.shape_as_tensor(scores)
+        number_to_keep = torch.min(
+            torch.cat(
+                (torch.tensor([self.detections_per_img], dtype=torch.long),
+                              number_of_detections), 0))
+
+        _, keep = torch.topk(
+            scores, number_to_keep, dim=0, sorted=True)
+
         return keep
 
     def forward(self, x, boxes):
@@ -72,7 +89,8 @@ class PostProcessor(torch.jit.ScriptModule):
         class_logits, box_regression = x
         class_prob = F.softmax(class_logits, -1)
 
-        # TODO think about a representation of batch of boxes
+        # TODO: ONNX NMS supports multi-batch, multi-classes natively. 
+        #       Theoretically this whole block can be exported as one ONNX::NMS operator.
         image_shapes = [box.size for box in boxes]
         boxes_per_image = [len(box) for box in boxes]
         concat_boxes = torch.cat([a.bbox for a in boxes], dim=0)
@@ -87,8 +105,14 @@ class PostProcessor(torch.jit.ScriptModule):
 
         num_classes = class_prob.shape[1]
 
-        proposals = proposals.split(boxes_per_image, dim=0)
-        class_prob = class_prob.split(boxes_per_image, dim=0)
+        if self.onnx_export:
+            # NOTE: Only batch == 1 is supported currently.
+            assert len(boxes_per_image) == 1
+            proposals = (proposals,)
+            class_prob = (class_prob,)
+        else:
+            proposals = proposals.split(boxes_per_image, dim=0)
+            class_prob = class_prob.split(boxes_per_image, dim=0)
 
         results = []
         for prob, boxes_per_img, image_shape in zip(
@@ -151,7 +175,10 @@ class PostProcessor(torch.jit.ScriptModule):
 
         result = cat_boxlist(result)
         scores = result.get_field("scores")
-        keep = self.detections_to_keep(scores)
+        if self.onnx_export:
+            keep = self.detections_to_keep_onnx(scores)
+        else:
+            keep = self.detections_to_keep(scores)
         result = result[keep]
         return result
 

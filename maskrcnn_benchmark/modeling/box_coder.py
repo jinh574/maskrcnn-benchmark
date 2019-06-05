@@ -70,8 +70,8 @@ class BoxCoder(object):
         TO_REMOVE = 1  # TODO remove
         widths = boxes[:, 2] - boxes[:, 0] + TO_REMOVE
         heights = boxes[:, 3] - boxes[:, 1] + TO_REMOVE
-        ctr_x = boxes[:, 0] + 0.5 * widths
-        ctr_y = boxes[:, 1] + 0.5 * heights
+        ctr_x = boxes[:, 0] + torch.tensor(0.5, dtype=torch.float32) * widths
+        ctr_y = boxes[:, 1] + torch.tensor(0.5, dtype=torch.float32) * heights
 
         wx, wy, ww, wh = self.weights
         dx = rel_codes[:, 0::4] / wx

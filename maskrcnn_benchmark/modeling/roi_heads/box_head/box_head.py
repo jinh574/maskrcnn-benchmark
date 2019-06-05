@@ -20,6 +20,10 @@ class ROIBoxHead(torch.nn.Module):
         self.post_processor = make_roi_box_post_processor(cfg)
         self.loss_evaluator = make_roi_box_loss_evaluator(cfg)
 
+    def prepare_onnx_export(self):
+        self.post_processor.prepare_onnx_export()
+        self.feature_extractor.pooler.prepare_onnx_export()
+
     def forward(self, features, proposals, targets=None):
         """
         Arguments:

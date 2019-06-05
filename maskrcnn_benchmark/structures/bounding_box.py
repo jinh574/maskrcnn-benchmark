@@ -228,6 +228,7 @@ class BoxList(object):
     def clip_to_image(self, remove_empty=True):
         TO_REMOVE = 1
         # we do not use clamp_ inplace for the benefit of JIT tracing
+        # TODO: this is causing ONNX accuracy drop in very rare cases.
         xs = self.bbox[:, 0::2].clamp(min=0, max=self.size[0] - TO_REMOVE)
         ys = self.bbox[:, 1::2].clamp(min=0, max=self.size[1] - TO_REMOVE)
         self.bbox = torch.stack([xs, ys], dim=2).view(-1, 4)
