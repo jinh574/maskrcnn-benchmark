@@ -34,7 +34,7 @@ def get_extensions():
                           os.path.join(extensions_dir, "cpu", "ROIAlign_cpu.cpp")]
     custom_ops_sources_cuda = [os.path.join(extensions_dir, "cuda", "nms.cu"),
                                os.path.join(extensions_dir, "cuda", "ROIAlign_cuda.cu")]
-    custom_ops_libraries = ["opencv_core", "opencv_imgproc", "opencv_imgcodecs"]
+    custom_ops_libraries = []#["opencv_core", "opencv_imgproc", "opencv_imgcodecs"]
     extra_compile_args = {"cxx": []}
     define_macros = []
 

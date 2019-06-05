@@ -15,21 +15,21 @@ conda install ipython
 # maskrcnn_benchmark and coco api dependencies
 pip install ninja yacs cython matplotlib tqdm opencv-python requests
 
+# onnx
+pip install onnx
+
 # onnxruntime as onnx backend
 pip install onnxruntime
 
 # follow PyTorch installation in https://pytorch.org/get-started/locally/
 # we give the instructions for CUDA 10.0
-conda install -c pytorch pytorch-nightly cudatoolkit=9.0
-
-# opencv for custom ops
-conda install opencv
+conda install -c pytorch pytorch-nightly cudatoolkit=10.0
 
 export INSTALL_DIR=$PWD
 
 # install torchvision
 cd $INSTALL_DIR
-git clone https://github.com/torch/vision.git
+git clone https://github.com/pytorch/vision.git
 cd vision
 python setup.py develop
 
@@ -47,7 +47,7 @@ python setup.py install --cuda_ext --cpp_ext
 
 # install PyTorch Detection - ONNX branch
 cd $INSTALL_DIR
-git clone https://github.com/bowbao/maskrcnn-benchmark.git maskrcnn-onnx
+git clone https://github.com/bowenbao/maskrcnn-benchmark.git maskrcnn-onnx
 cd maskrcnn-onnx
 git checkout onnx_stage
 
