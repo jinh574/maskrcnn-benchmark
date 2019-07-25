@@ -296,5 +296,5 @@ def postprocess_model(model_path):
 
         return model
     onnx_model = remove_unused_floor(onnx_model)
-    onnx_model = update_inputs_outputs_dims(onnx_model, [[3, 'height', 'width']], [['nbox', 4], ['nbox'], ['nbox']])
+    onnx_model = update_inputs_outputs_dims(onnx_model, [[3, 'height', 'width']], [['nbox', 4], ['nbox'], ['nbox'], ['nbox', 1, 28, 28]])
     onnx.save(onnx_model, model_path)

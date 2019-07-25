@@ -45,8 +45,12 @@ class MaskPostProcessor(nn.Module):
         # select masks coresponding to the predicted classes
         labels = [bbox.get_field("labels") for bbox in boxes]
         labels = torch.cat(labels)
-        index = arange_like(x)
-        mask_prob = mask_prob[index, labels][:, None]
+        #index = arange_like(x)
+        index = torch.ones(x.size(0), device=x.device, dtype=torch.long).nonzero().squeeze(1)
+        # quick work around
+        mask_prob = mask_prob.reshape(-1, mask_prob.size(2), mask_prob.size(3)).index_select(0, labels + index * mask_prob.size(1)).unsqueeze(1)
+
+        #mask_prob = mask_prob[index, labels][:, None]
 
         # boxes_per_image = [len(box) for box in boxes]
         # mask_prob = mask_prob.split(boxes_per_image, dim=0)
@@ -161,7 +165,13 @@ def paste_mask_in_image(mask, box, im_h, im_w, thresh=0.5, padding=1):
     x_1 = min(box[2] + 1, im_w)
     y_0 = max(box[1], 0)
     y_1 = min(box[3] + 1, im_h)
-
+    # mask_y_0 = max(y_0 - box[1], 0)
+    # mask_y_1 = mask_y_0 + y_1 - y_0
+    # mask_x_0 = max(x_0 - box[0], 0)
+    # mask_x_1 = mask_x_0 + x_1 - x_0
+    # im_mask[y_0:y_1, x_0:x_1] = mask[
+    #     mask_y_0 : mask_y_1, mask_x_0 : mask_x_1
+    # ]
     im_mask[y_0:y_1, x_0:x_1] = mask[
         (y_0 - box[1]) : (y_1 - box[1]), (x_0 - box[0]) : (x_1 - box[0])
     ]
@@ -181,6 +191,13 @@ class Masker(object):
     def forward_single_image(self, masks, boxes):
         boxes = boxes.convert("xyxy")
         im_w, im_h = boxes.size
+        # res = []
+        # for mask, box in zip(masks, boxes.bbox):
+        #     try:
+        #         res.append(paste_mask_in_image(mask[0], box, im_h, im_w, self.threshold, self.padding))
+        #     except Exception as e:
+        #        print(e)
+        #        continue
         res = [
             paste_mask_in_image(mask[0], box, im_h, im_w, self.threshold, self.padding)
             for mask, box in zip(masks, boxes.bbox)

@@ -43,9 +43,10 @@ def preprocess(image):
 
 classes = [line.rstrip('\n') for line in open('coco_classes.txt')]
 
-session = onnxruntime.InferenceSession('faster_rcnn_R_50_FPN_1x.onnx')
+session = onnxruntime.InferenceSession('mask_rcnn_R_50_FPN_1x.onnx')
 
 img = Image.open('frcnn_demo.jpg')
+# img = Image.open('/home/bowbao/repos/mlperf_inference/cloud/single_stage_detector/val2017/000000001000.jpg')
 
 """
 Preprocessing
@@ -57,23 +58,61 @@ img_data = preprocess(img)
 """
 Inference
 """
-boxes, labels, scores = session.run(None, {
+boxes, labels, scores, masks = session.run(None, {
     session.get_inputs()[0].name: img_data
 })
 
 print(boxes.shape)
 print(labels.shape)
 print(scores.shape)
-
+print(masks.shape)
 """
 Postprocessing
 """
-def display_objdetect_image(image, boxes, labels, scores, score_threshold=0.7):
+def display_objdetect_image(image, boxes, labels, scores, masks, score_threshold=0.7):
     # Resize boxes
     ratio = 800.0 / min(image.size[0], image.size[1])
     boxes /= ratio
+    #masks /= ratio
 
     _, ax = plt.subplots(1, figsize=(12,9))
+
+    import pycocotools.mask as mask_util
+    import cv2
+    from maskrcnn_benchmark.utils import cv2_util
+
+    image = np.array(image)#.astype('float32')
+
+
+    for mask, box, label, score in zip(masks, boxes, labels, scores):
+        if score <= score_threshold:
+            break
+        mask = mask[0, :, :, None]
+
+        mask = cv2.resize(mask, (int(box[2])-int(box[0])+1, int(box[3])-int(box[1])+1))
+
+        mask = mask > 0.5
+
+        im_mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
+        x_0 = max(int(box[0]), 0)
+        x_1 = min(int(box[2]) + 1, image.shape[1])
+        y_0 = max(int(box[1]), 0)
+        y_1 = min(int(box[3]) + 1, image.shape[0])
+
+        try:
+            im_mask[int(y_0):int(y_1), int(x_0):int(x_1)] = mask[
+                (y_0 - int(box[1])) : (y_1 - int(box[1])), (x_0 - int(box[0])) : (x_1 - int(box[0]))
+            ]
+        except Exception as e:
+            print(e)
+
+        im_mask = im_mask[:, :, None]
+        contours, hierarchy = cv2_util.findContours(
+            im_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        )
+
+        image = cv2.drawContours(image, contours, -1, 25, 3)
+
     ax.imshow(image)
 
     # Showing boxes with score > 0.7
@@ -84,4 +123,4 @@ def display_objdetect_image(image, boxes, labels, scores, score_threshold=0.7):
             ax.add_patch(rect)
     plt.show()
 
-display_objdetect_image(img, boxes, labels, scores)
+display_objdetect_image(img, boxes, labels, scores, masks)

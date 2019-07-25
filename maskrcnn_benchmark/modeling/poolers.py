@@ -108,7 +108,7 @@ class Pooler(nn.Module):
         lvl_max = -torch.log2(torch.tensor(scales[-1], dtype=torch.float32)).item()
         self.map_levels = LevelMapper(lvl_min, lvl_max)
 
-        self.onnx_export = False
+        self.onnx_export = True
 
     def prepare_onnx_export(self):
         self.onnx_export = True
