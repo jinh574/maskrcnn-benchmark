@@ -7,6 +7,14 @@ import os
 class DatasetCatalog(object):
     DATA_DIR = "datasets"
     DATASETS = {
+        "modanet_2018_train": {
+            "img_dir": "modanet/images",
+            "ann_file": "modanet/annotations/modanet2018_instances_train.json"
+        },
+        "modanet_2018_val": {
+            "img_dir": "modanet/images",
+            "ann_file": "modanet/annotations/modanet2018_instances_val.json"
+        },
         "coco_2017_train": {
             "img_dir": "coco/train2017",
             "ann_file": "coco/annotations/instances_train2017.json"
@@ -108,7 +116,7 @@ class DatasetCatalog(object):
 
     @staticmethod
     def get(name):
-        if "coco" in name:
+        if "coco" in name or "modanet" in name:
             data_dir = DatasetCatalog.DATA_DIR
             attrs = DatasetCatalog.DATASETS[name]
             args = dict(
@@ -181,7 +189,8 @@ class ModelCatalog(object):
         # we use as identifiers in the catalog Caffe2Detectron/COCO/<model_id>/<model_name>
         prefix = ModelCatalog.S3_C2_DETECTRON_URL
         dataset_tag = "keypoints_" if "keypoint" in name else ""
-        suffix = ModelCatalog.C2_DETECTRON_SUFFIX.format(dataset_tag, dataset_tag)
+        suffix = ModelCatalog.C2_DETECTRON_SUFFIX.format(
+            dataset_tag, dataset_tag)
         # remove identification prefix
         name = name[len("Caffe2Detectron/COCO/"):]
         # split in <model_id> and <model_name>
@@ -190,5 +199,6 @@ class ModelCatalog(object):
         model_name = "{}.yaml".format(model_name)
         signature = ModelCatalog.C2_DETECTRON_MODELS[name]
         unique_name = ".".join([model_name, signature])
-        url = "/".join([prefix, model_id, "12_2017_baselines", unique_name, suffix])
+        url = "/".join([prefix, model_id, "12_2017_baselines",
+                        unique_name, suffix])
         return url
