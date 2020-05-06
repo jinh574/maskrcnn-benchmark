@@ -19,6 +19,7 @@ class BoxList(object):
     def __init__(self, bbox, image_size, mode="xyxy"):
         device = bbox.device if isinstance(bbox, torch.Tensor) else torch.device("cpu")
         # only do as_tensor if isn't a "no-op", because it hurts JIT tracing
+
         if not isinstance(bbox, torch.Tensor) or bbox.dtype != torch.float32 or bbox.device != device:
             bbox = torch.as_tensor(bbox, dtype=torch.float32, device=device)
         if bbox.ndimension() != 2:
@@ -217,6 +218,8 @@ class BoxList(object):
         return bbox
 
     def __getitem__(self, item):
+        if item is None:
+            item = torch.tensor([], dtype=torch.int64)
         bbox = BoxList(self.bbox[item], self.size, self.mode)
         for k, v in self.extra_fields.items():
             bbox.add_field(k, v[item])

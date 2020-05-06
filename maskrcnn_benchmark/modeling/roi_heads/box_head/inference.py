@@ -89,7 +89,7 @@ class PostProcessor(torch.jit.ScriptModule):
         class_logits, box_regression = x
         class_prob = F.softmax(class_logits, -1)
 
-        # TODO: ONNX NMS supports multi-batch, multi-classes natively. 
+        # TODO: ONNX NMS supports multi-batch, multi-classes natively.
         #       Theoretically this whole block can be exported as one ONNX::NMS operator.
         image_shapes = [box.size for box in boxes]
         boxes_per_image = [len(box) for box in boxes]

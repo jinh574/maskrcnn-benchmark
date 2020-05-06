@@ -2,7 +2,8 @@
 r"""
 Basic training script for PyTorch
 """
-
+import warnings
+warnings.simplefilter("ignore")
 # Set up custom environment before nearly anything else is imported
 # NOTE: this should be the first import (no not reorder)
 from maskrcnn_benchmark.utils.env import setup_environment  # noqa F401 isort:skip
