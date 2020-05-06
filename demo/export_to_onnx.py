@@ -21,7 +21,8 @@ if __name__ == "__main__":
     project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     cfg.merge_from_file(
         os.path.join(project_dir,
-                     "configs/caffe2/e2e_mask_rcnn_R_50_FPN_1x_caffe2.yaml"))
+                    # "configs/caffe2/e2e_mask_rcnn_R_50_FPN_1x_caffe2.yaml"))
+                     "configs/caffe2/e2e_mask_rcnn_R_101_FPN_1x_caffe2.yaml"))
                     # "configs/caffe2/e2e_faster_rcnn_R_50_FPN_1x_caffe2.yaml"))
     # cfg.merge_from_list(["MODEL.DEVICE", "cpu"])
     cfg.freeze()
@@ -94,7 +95,8 @@ if __name__ == '__main__':
     image = image - torch.tensor(cfg.INPUT.PIXEL_MEAN)[:, None, None].to('cuda')
 
     # model_path = 'faster_rcnn_R_50_FPN_1x.onnx'
-    model_path = 'mask_rcnn_R_50_FPN_1x.onnx'
+    # model_path = 'mask_rcnn_R_50_FPN_1x.onnx'
+    model_path = 'mask_rcnn_R_101_FPN_1x.onnx'
 
     with torch.no_grad():
         model = FRCNNModel()

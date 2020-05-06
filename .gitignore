@@ -32,3 +32,4 @@ dist/
 /datasets
 /models
 /output
+*.onnx

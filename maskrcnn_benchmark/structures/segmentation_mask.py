@@ -53,26 +53,29 @@ class BinaryMaskList(object):
             masks = masks.clone()
         elif isinstance(masks, (list, tuple)):
             if len(masks) == 0:
-                masks = torch.empty([0, size[1], size[0]]) # num_instances = 0!
+                masks = torch.empty([0, size[1], size[0]])  # num_instances = 0!
             elif isinstance(masks[0], torch.Tensor):
                 masks = torch.stack(masks, dim=2).clone()
             elif isinstance(masks[0], dict) and "counts" in masks[0]:
                 # RLE interpretation
                 assert all(
-                    [(size[1], size[0]) == tuple(inst["size"]) for inst in masks]
+                    [(size[1], size[0]) == tuple(inst["size"])
+                     for inst in masks]
                 )  # in RLE, height come first in "size"
                 masks = mask_utils.decode(masks)  # [h, w, n]
                 masks = torch.tensor(masks).permute(2, 0, 1)  # [n, h, w]
             else:
                 RuntimeError(
-                    "Type of `masks[0]` could not be interpreted: %s" % type(masks)
+                    "Type of `masks[0]` could not be interpreted: %s" % type(
+                        masks)
                 )
         elif isinstance(masks, BinaryMaskList):
             # just hard copy the BinaryMaskList instance's underlying data
             masks = masks.masks.clone()
         else:
             RuntimeError(
-                "Type of `masks` argument could not be interpreted:%s" % type(masks)
+                "Type of `masks` argument could not be interpreted:%s" % type(
+                    masks)
             )
 
         if len(masks.shape) == 2:
@@ -206,7 +209,8 @@ class PolygonInstance(object):
 
         else:
             RuntimeError(
-                "Type of argument `polygons` is not allowed:%s" % (type(polygons))
+                "Type of argument `polygons` is not allowed:%s" % (
+                    type(polygons))
             )
 
         """ This crashes the training way too many times...
@@ -278,7 +282,8 @@ class PolygonInstance(object):
             assert isinstance(size, (int, float))
             size = size, size
 
-        ratios = tuple(float(s) / float(s_orig) for s, s_orig in zip(size, self.size))
+        ratios = tuple(float(s) / float(s_orig)
+                       for s, s_orig in zip(size, self.size))
 
         if ratios[0] == ratios[1]:
             ratio = ratios[0]
@@ -349,7 +354,8 @@ class PolygonList(object):
                     type(polygons[0][0])
                 )
             else:
-                assert isinstance(polygons[0], PolygonInstance), str(type(polygons[0]))
+                assert isinstance(polygons[0], PolygonInstance), str(
+                    type(polygons[0]))
 
         elif isinstance(polygons, PolygonList):
             size = polygons.size
@@ -357,7 +363,8 @@ class PolygonList(object):
 
         else:
             RuntimeError(
-                "Type of argument `polygons` is not allowed:%s" % (type(polygons))
+                "Type of argument `polygons` is not allowed:%s" % (
+                    type(polygons))
             )
 
         assert isinstance(size, (list, tuple)), str(type(size))
@@ -404,7 +411,8 @@ class PolygonList(object):
 
     def convert_to_binarymask(self):
         if len(self) > 0:
-            masks = torch.stack([p.convert_to_binarymask() for p in self.polygons])
+            masks = torch.stack([p.convert_to_binarymask()
+                                 for p in self.polygons])
         else:
             size = self.size
             masks = torch.empty([0, size[1], size[0]], dtype=torch.uint8)
@@ -422,7 +430,7 @@ class PolygonList(object):
         else:
             # advanced indexing on a single dimension
             selected_polygons = []
-            if isinstance(item, torch.Tensor) and item.dtype == torch.uint8:
+            if isinstance(item, torch.Tensor) and item.dtype == torch.bool:
                 item = item.nonzero()
                 item = item.squeeze(1) if item.numel() > 0 else item
                 item = item.tolist()
